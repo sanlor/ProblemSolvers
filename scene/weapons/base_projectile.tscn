@@ -1,0 +1,45 @@
+[gd_scene load_steps=6 format=3 uid="uid://4up0di6feqmm"]
+
+[ext_resource type="Script" path="res://scene/weapons/base_projectile.gd" id="1_ekjpp"]
+[ext_resource type="Texture2D" uid="uid://jx633jxlmx34" path="res://art/player/projectile.png" id="2_34s3b"]
+
+[sub_resource type="Gradient" id="Gradient_e8ll4"]
+offsets = PackedFloat32Array(0, 0.54918, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_3lhq3"]
+gradient = SubResource("Gradient_e8ll4")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fl5iq"]
+emission_shape = 1
+emission_sphere_radius = 2.0
+direction = Vector3(0, 0, 0)
+initial_velocity_min = 1.0
+initial_velocity_max = 20.0
+gravity = Vector3(0, -5, 0)
+scale_max = 2.0
+color_ramp = SubResource("GradientTexture1D_3lhq3")
+
+[node name="base_projectile" type="Node2D"]
+top_level = true
+script = ExtResource("1_ekjpp")
+
+[node name="main_sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2_34s3b")
+
+[node name="particles" type="GPUParticles2D" parent="."]
+position = Vector2(-3, 0)
+amount = 100
+amount_ratio = 0.5
+process_material = SubResource("ParticleProcessMaterial_fl5iq")
+visibility_rect = Rect2(-600, -600, 1200, 1200)
+
+[node name="collision_checker" type="Marker2D" parent="."]
+position = Vector2(3, 0)
+
+[node name="lifetime" type="Timer" parent="."]
+wait_time = 5.0
+one_shot = true
+autostart = true
+
+[connection signal="timeout" from="lifetime" to="." method="_on_lifetime_timeout"]

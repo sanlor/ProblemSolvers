@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="Weapons" load_steps=3 format=3 uid="uid://cyl4n108dx0u4"]
+
+[ext_resource type="Script" path="res://data/weapons.gd" id="1_xidbr"]
+[ext_resource type="Texture2D" uid="uid://cy7o8mt7iwc7p" path="res://art/player/temp_weapon.png" id="2_78c4w"]
+
+[resource]
+script = ExtResource("1_xidbr")
+weapon_id = 0
+weapon_name = "Handgun"
+damage = 5
+blast_radius = 15
+firerate = 0.15
+fire_spread = 0.0
+fire_range = 200.0
+sprite = ExtResource("2_78c4w")
+recoil_force = 5.0
+is_hitscan = true
+is_gravity_affected = false
+can_leave_trail = false
+trigger_sound = 5
+projectile = ""
+projectile_speed = 0
+projectile_accel = 0.0
+projectile_sound = 2

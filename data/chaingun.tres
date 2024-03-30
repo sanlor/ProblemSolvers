@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="Weapons" load_steps=3 format=3 uid="uid://cfk8y80nqr5wu"]
+
+[ext_resource type="Script" path="res://data/weapons.gd" id="1_vswap"]
+[ext_resource type="Texture2D" uid="uid://gu4iajttddl7" path="res://art/player/w_chaingun.png" id="2_02di6"]
+
+[resource]
+script = ExtResource("1_vswap")
+weapon_id = 1
+weapon_name = "Chaingun"
+damage = 15
+blast_radius = 10
+firerate = 0.05
+fire_spread = 0.0
+fire_range = 100.0
+sprite = ExtResource("2_02di6")
+recoil_force = 1.0
+is_hitscan = true
+is_gravity_affected = false
+can_leave_trail = false
+trigger_sound = 5
+projectile = ""
+projectile_speed = 0
+projectile_accel = 0.0
+projectile_sound = 1

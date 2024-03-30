@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://cwpr383b68xt2"]
+
+[node name="TimedProjectile" type="Node2D"]

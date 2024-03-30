@@ -1,0 +1,66 @@
+[gd_scene format=3 uid="uid://b1li7fpd27wbp"]
+
+[node name="main_menu" type="Node"]
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -20.0
+offset_right = 40.0
+offset_bottom = 20.0
+grow_vertical = 2
+
+[node name="start_server_only" type="Button" parent="Control/VBoxContainer"]
+layout_mode = 2
+text = "Start Server"
+
+[node name="start_join_server" type="Button" parent="Control/VBoxContainer"]
+layout_mode = 2
+text = "Start and Join Server"
+
+[node name="join_server" type="Button" parent="Control/VBoxContainer"]
+layout_mode = 2
+text = "Join Server"
+
+[node name="server_data" type="VBoxContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="server_status" type="Label" parent="Control/server_data"]
+layout_mode = 2
+text = "Disconnected."
+
+[node name="enter_game" type="Button" parent="Control/server_data"]
+layout_mode = 2
+text = "Enter Game!"
+
+[node name="disconnect" type="Button" parent="Control/server_data"]
+layout_mode = 2
+text = "Disconnect"
+
+[connection signal="pressed" from="Control/VBoxContainer/start_server_only" to="." method="_on_start_server_pressed"]
+[connection signal="pressed" from="Control/VBoxContainer/start_join_server" to="." method="_on_start_join_server_pressed"]
+[connection signal="pressed" from="Control/VBoxContainer/join_server" to="." method="_on_join_server_pressed"]
+[connection signal="pressed" from="Control/server_data/enter_game" to="." method="_on_enter_game_pressed"]

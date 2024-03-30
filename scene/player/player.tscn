@@ -1,0 +1,132 @@
+[gd_scene load_steps=7 format=3 uid="uid://bw5k1pex2vqm3"]
+
+[ext_resource type="Script" path="res://scene/player/player.gd" id="1_ejxrk"]
+[ext_resource type="Texture2D" uid="uid://bggswxus5u4xq" path="res://art/player/player_s.png" id="2_uxxr3"]
+[ext_resource type="Texture2D" uid="uid://dd7ijrlxr0p6n" path="res://art/player/temp_weapon_s.png" id="3_nfl1u"]
+[ext_resource type="Texture2D" uid="uid://k4gtp0ydjryw" path="res://art/player/aim.png" id="3_re2vi"]
+[ext_resource type="Script" path="res://scene/world/network_ui.gd" id="5_2pucm"]
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_utq8v"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("main_sprite:flip_h")
+properties/1/spawn = true
+properties/1/replication_mode = 2
+properties/2/path = NodePath(".:user_network_id")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:curr_weapon_sprite")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+properties/4/path = NodePath("pivot:rotation")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath("pivot/weapon:flip_v")
+properties/5/spawn = true
+properties/5/replication_mode = 1
+properties/6/path = NodePath(".:life")
+properties/6/spawn = true
+properties/6/replication_mode = 1
+properties/7/path = NodePath(".:curr_i_frame")
+properties/7/spawn = true
+properties/7/replication_mode = 1
+properties/8/path = NodePath(".:curr_recovery_time")
+properties/8/spawn = true
+properties/8/replication_mode = 1
+properties/9/path = NodePath(".:curr_team")
+properties/9/spawn = true
+properties/9/replication_mode = 1
+
+[node name="player" type="Node2D"]
+script = ExtResource("1_ejxrk")
+current_loadout = Array[int]([0, 1, 2])
+collision_rect = Rect2(-2, -2, 4, 6)
+
+[node name="main_sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2_uxxr3")
+
+[node name="land_check" type="Marker2D" parent="main_sprite"]
+position = Vector2(0, 4)
+
+[node name="near_land_check" type="Marker2D" parent="main_sprite"]
+position = Vector2(0, 5)
+
+[node name="wall_right_check" type="Marker2D" parent="main_sprite"]
+position = Vector2(3, 0)
+
+[node name="near_wall_right_check" type="Marker2D" parent="main_sprite"]
+position = Vector2(4, 0)
+
+[node name="wall_left_check" type="Marker2D" parent="main_sprite"]
+position = Vector2(-3, 0)
+
+[node name="near_wall_left_check" type="Marker2D" parent="main_sprite"]
+position = Vector2(-4, 0)
+
+[node name="ceiling_check" type="Marker2D" parent="main_sprite"]
+position = Vector2(0, -2)
+
+[node name="near_ceiling_check" type="Marker2D" parent="main_sprite"]
+position = Vector2(0, -3)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(2, 2)
+limit_left = 0
+limit_top = 0
+
+[node name="pivot" type="Node2D" parent="."]
+
+[node name="weapon" type="Sprite2D" parent="pivot"]
+position = Vector2(8, 0)
+texture = ExtResource("3_nfl1u")
+
+[node name="bullet_origin" type="Marker2D" parent="pivot"]
+position = Vector2(10, 0)
+
+[node name="aim_reticle" type="Sprite2D" parent="pivot"]
+position = Vector2(42, 0)
+texture = ExtResource("3_re2vi")
+
+[node name="line" type="Line2D" parent="pivot"]
+points = PackedVector2Array(18, 0, 38, 0)
+width = 1.0
+
+[node name="player_name" type="Label" parent="."]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -100.0
+offset_top = -30.0
+offset_right = 100.0
+grow_horizontal = 2
+scale = Vector2(0.5, 0.5)
+pivot_offset = Vector2(100, 15)
+horizontal_alignment = 1
+
+[node name="player_DEBUG" type="Label" parent="."]
+visible = false
+offset_top = -9.0
+offset_right = 40.0
+offset_bottom = 14.0
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_utq8v")
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+bus = &"sound_effect"
+
+[node name="UI" type="CanvasLayer" parent="."]
+visible = false
+script = ExtResource("5_2pucm")
+
+[node name="life_bar" type="ProgressBar" parent="UI"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -27.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[connection signal="tree_entered" from="UI" to="UI" method="_on_tree_entered"]
