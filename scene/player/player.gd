@@ -1,11 +1,11 @@
 extends Node2D
 class_name Player
 
-enum{STANDING, HURT, FLYING}
-var curr_state = STANDING :
+enum STATE{STANDING, HURT, FLYING, JUMPING}
+var curr_state = STATE.STANDING :
 	set(state):
 		curr_state = state
-		print(self,": changed state to %s ." % curr_state)
+		#print(self,": changed state to %s ." % curr_state)
 ## STANDING - Walking, stopped, shooting
 ## HURT - Being hurt, exploded and bouncing off walls
 ## FLYING - Using jetpack (TODO)
@@ -13,7 +13,6 @@ var curr_state = STANDING :
 @onready var camera_2d = $Camera2D
 
 @onready var pivot = $pivot
-@onready var line = $pivot/line
 @onready var aim_reticle = $pivot/aim_reticle
 
 @onready var land_check = $main_sprite/land_check
@@ -25,7 +24,6 @@ var curr_state = STANDING :
 
 @onready var ceiling_check : Marker2D  = $main_sprite/ceiling_check
 @onready var near_ceiling_check : Marker2D = $main_sprite/near_ceiling_check
-
 
 @onready var bullet_origin = $pivot/bullet_origin
 
@@ -46,10 +44,10 @@ var curr_state = STANDING :
 	set(l):
 		life = l
 		_update_life_bar()
-@export var speed = 200
-@export var jump_speed = 300
-@export var gravity = 10
-@export var terminal_speed := 1000.0
+@export var speed = 80
+@export var jump_speed = 150
+#@export var gravity = 5
+@export var terminal_speed := 700.0
 @export var knockback_force := 50
 @export var vertical_bounce_damp := 2.0
 @export var horizontal_bounce_damp := 2.0
@@ -68,6 +66,7 @@ var curr_recovery_time := 0.0
 var curr_team : int
 var curr_player_name := ""
 var current_weapon : Weapons
+var curr_weapon_id := 0
 #var weapon_cooldown := 0.1 # Temp
 var current_cooldown := 0.0
 
@@ -87,11 +86,11 @@ var dir : float
 
 func _ready():
 	camera_2d.enabled = is_multiplayer_authority()
+	Network.got_server_player_data.connect( apply_cosmetics )
 	setup_camera()
 	
 	# hide these for other players
 	if not is_multiplayer_authority():
-		line.visible 			= false
 		aim_reticle.visible 	= false
 	else:
 		load_weapon_data( current_loadout.front() )
@@ -120,12 +119,12 @@ func _update_life_bar():
 	pass
 
 func apply_cosmetics():
-	if MultiplayerLobby.players_connected.has( user_network_id ):
-		main_sprite.modulate = MultiplayerLobby.players_connected[user_network_id][MultiplayerLobby.COLOR]
-		curr_player_name = MultiplayerLobby.players_connected[user_network_id][MultiplayerLobby.NAME]
-		curr_team = MultiplayerLobby.players_connected[user_network_id][MultiplayerLobby.TEAM]
+	if Network.players_connected.has( user_network_id ):
+		main_sprite.modulate = Network.players_connected[user_network_id][Network.COLOR]
+		curr_player_name = Network.players_connected[user_network_id][Network.NAME]
+		curr_team = Network.players_connected[user_network_id][Network.TEAM]
 		
-		if curr_team != MultiplayerLobby.player_data[MultiplayerLobby.TEAM]:
+		if curr_team != Network.player_data[Network.TEAM]:
 			player_name.modulate = Color.ORANGE_RED
 		else:
 			player_name.modulate = Color.SEA_GREEN
@@ -167,7 +166,7 @@ func _update_line():
 
 func _user_input():
 	# Cant move while hurt
-	if curr_state != HURT:
+	if curr_state != STATE.HURT:
 		dir = Input.get_axis("walk_left", "walk_right")
 		if dir != 0:
 			velocity.x = lerp(velocity.x, dir * speed, acceleration)
@@ -181,6 +180,9 @@ func _user_input():
 				
 		if Input.is_action_just_pressed("change_weapon"):
 			change_weapon()
+			
+		if Input.is_action_just_pressed("menu"):
+			Global.show_connection_screen.emit()
 		
 func change_weapon():
 	current_loadout.push_back( current_loadout.pop_front() )
@@ -190,7 +192,7 @@ func load_weapon_data(id : Weapons.ID):
 	current_cooldown 	= weapons.DATA[id].firerate
 	curr_weapon_sprite 	= weapons.DATA[id].sprite
 	current_weapon = weapons.DATA[id]
-
+	curr_weapon_id = id
 
 func _cooldown( delta ):
 	if current_cooldown > 0.0:
@@ -199,22 +201,25 @@ func _cooldown( delta ):
 	if curr_i_frame >= 0.0:
 		curr_i_frame -= 1 * delta
 
+## Any_peer might be overkill.
+@rpc("any_peer","call_local")
 func apply_damage(direction : Vector2, recoil : float, amount : float):
 	if curr_i_frame <= 0.0:
 		has_touched_ground = false
-		_apply_recoil( direction, recoil, true )
-		life -= amount
+		curr_state = STATE.HURT
 		curr_i_frame = i_frame
-		curr_state = HURT
+		life -= amount
+		_apply_recoil( direction, recoil, true )
 	else:
-		print("iframe")
+		#print("iframe")
+		pass
 
 func _apply_recoil(direction : Vector2, recoil : float, force : bool = false):
 	# Apply a inverted force to the player
 	if force:
-		velocity = ( direction * -1 ) * (recoil / 4)
+		velocity = ( direction * -1 ) * (recoil * 30)
 		#velocity.y -= knockback_force
-		print(velocity," ",recoil)
+		#print("recoil: ",velocity," ",recoil)
 	else:
 		velocity += ( direction * -1 ) * (recoil)
 
@@ -235,8 +240,11 @@ func _collision_check( ):
 	if is_near_land:
 		if curr_i_frame <= 0.0: # after i frames has passed
 			has_touched_ground = true
+			# Animation stuff
+			if curr_state == STATE.JUMPING:
+				curr_state = STATE.STANDING
 			
-		if curr_state == HURT: ## friction while being HURT and draggin on the terrain
+		if curr_state == STATE.HURT: ## friction while being HURT and draggin on the terrain
 			## slowdown the player if its touching the ground
 			## TODO apply some effect, like smoke
 			velocity = velocity.bounce( Vector2(0,1) ) / vertical_bounce_damp
@@ -247,28 +255,34 @@ func _collision_check( ):
 				
 			if Input.is_action_just_pressed("jump") and is_multiplayer_authority(): ## PLACEHOLDER
 				velocity.y -= jump_speed
+				curr_state = STATE.JUMPING
 			
 			if is_in_land:
 				#while world_node.is_pixel_set( land_check.global_position ):
 					position.y -= 1
 					
 	elif is_near_ceiling:
-		if curr_state == HURT:
+		if curr_state == STATE.HURT:
 			velocity = velocity.bounce( Vector2(0,1) ) / vertical_bounce_damp
 		elif velocity.y < 0.0:
 			velocity.y = -velocity.y # Bounce when hitting the ceiling
+			has_touched_ground = true
 			
 		if is_in_ceiling:
 			#while world_node.is_pixel_set( ceiling_check.global_position ):
 				position.y += 1
 	# If not standing on something, apply gravity
 	else:
-		velocity.y += gravity
+		velocity.y += Global.gravity
+		# Animation stuff
+		if curr_state == STATE.STANDING:
+			curr_state = STATE.JUMPING
 	
 	## HORIZONTAL
 	if is_near_wall_right and not is_near_wall_left:
-		if curr_state == HURT:
+		if curr_state == STATE.HURT:
 			velocity = velocity.bounce( Vector2(1,0) ) / horizontal_bounce_damp
+			has_touched_ground = true
 			
 		elif velocity.x > 0.0:
 			velocity.x = 0.0
@@ -278,8 +292,9 @@ func _collision_check( ):
 				position.x -= 1
 				
 	elif is_near_wall_left and not is_near_wall_right:
-		if curr_state == HURT:
+		if curr_state == STATE.HURT:
 			velocity = velocity.bounce( Vector2(-1,0) ) / horizontal_bounce_damp
+			has_touched_ground = true
 		
 		elif velocity.x < 0.0:
 			velocity.x = 0.0
@@ -289,21 +304,32 @@ func _collision_check( ):
 				position.x += 1
 				
 	if is_near_wall_left and is_near_wall_right: ## DEBUG
+		has_touched_ground = true
 		print("sandwich")
 
-	
 func _update_animation():
 	# if dir == 0, do nothing
+	if curr_state == STATE.JUMPING:
+		main_sprite.play("jumping")
+		
+	elif curr_state == STATE.HURT:
+		main_sprite.play("hurt")
+	else:
+		main_sprite.play("standing")
+	
 	if dir > 0.0:
 		main_sprite.flip_h = false
+		main_sprite.play("walk")
 	elif dir < 0.0:
 		main_sprite.flip_h = true
-	
+		main_sprite.play("walk")
+		
 	# adjust the weapon sprite
-	if global_position.direction_to( get_global_mouse_position() ).x > 0.0:
-		weapon_sprite.flip_v = false
-	else:
-		weapon_sprite.flip_v = true
+	if is_multiplayer_authority():
+		if global_position.direction_to( get_global_mouse_position() ).x > 0.0:
+			weapon_sprite.flip_v = false
+		else:
+			weapon_sprite.flip_v = true
 
 func _notification(what):
 	if what == MainLoop.NOTIFICATION_APPLICATION_FOCUS_OUT:
@@ -317,29 +343,31 @@ func _process( delta ):
 		print(self," is dead (OOB) ",global_position.abs())
 		queue_free()
 	
+	_update_animation()
+	
 	if multiplayer.multiplayer_peer == null:
 		#disconnected from server
 		queue_free() 
 		
 	elif is_multiplayer_authority():
-		_user_input()
-		_update_animation()
+		_user_input()	
 		_update_line()
 		_cooldown( delta )
 		_collision_check( )
-		
+
 		#print(velocity)
 		position += velocity * delta ## Apply velocity after all calculations.
 		
-		if curr_state == HURT:
+		if curr_state == STATE.HURT:
 			# firction applied by the _collision_check().
-			#print(velocity.length())
-			if velocity.length() < 0.25 and velocity.y < 0.0 and has_touched_ground: ## 1 is TEMP
-				curr_state = STANDING ## TODO improve this. players can recover midair
-		
+			print(velocity.length())
+			if velocity.length() < 6.0 and has_touched_ground: ## 1 is TEMP
+				curr_state = STATE.STANDING ## TODO improve this. players can recover midair
+	else:
+		# Update weapon sprite for peers
+		weapon_sprite.texture = weapons.DATA[ curr_weapon_id ].sprite
 		
 	player_name.text = curr_player_name
-	$player_DEBUG.text = str(curr_state)
 
 func setup_camera():
 	camera_2d.limit_bottom	 = Global.map_size.y

@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://caangs54n5t0a"]
+
+[ext_resource type="Script" path="res://scene/effects/bullet_trail.gd" id="1_kww8j"]
+
+[node name="bullet_trail" type="Line2D"]
+modulate = Color(1, 1, 1, 0.470588)
+top_level = true
+width = 1.0
+script = ExtResource("1_kww8j")
+fade_time = 2.0

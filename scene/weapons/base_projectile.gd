@@ -47,11 +47,17 @@ func _check_collision():
 		_explode()
 		
 func _explode():
-	world_node.create_explosion.rpc_id(1, global_position, my_blast_radius, my_sfx, my_damage)
-	
+	if multiplayer.is_server():
+		world_node.create_explosion.rpc_id(1, global_position, my_blast_radius, my_sfx, my_damage)
+		stop_and_hide_projectile.rpc()
+
+## Stop and hide all projectiles on server and peers
+@rpc("call_local")
+func stop_and_hide_projectile():
 	# Hide the node while the animation finishes.
 	main_sprite.visible = false
 	running = false
+	my_velocity = 0.0 # stop the missile
 	particles.emitting = false
 	
 	# Wait for the particles to die off.

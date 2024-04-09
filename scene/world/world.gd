@@ -1,25 +1,30 @@
-@tool
 extends Node2D
 
 @onready var rng := RandomNumberGenerator.new()
 
 var PLAYER 		= load("res://scene/player/player.tscn")
 const EXPLOSION = preload("res://scene/effects/explosion.tscn")
+const BLOOD_TRAIL = preload("res://scene/effects/blood_trail.tscn")
+const BULLET_TRAIL = preload("res://scene/effects/bullet_trail.tscn")
 
 @onready var playground = $playground
 @onready var level_texture = $level_texture
+@onready var background_texture = $background_texture
+@onready var behind_level_texture = $behind_level_texture
 @onready var server_update_timer = $server_update_timer
 
 #@onready var ui = $UI
-@onready var title_screen = $title_screen
-
+@onready var spawn_screen = $spawn_screen
+@onready var connection_screen = $connection_screen
 
 # https://fietkau.blog/2023/generating_terrain_simplex_noise
 @export var verbose_logs := false
+@export var verbose_network_logs := false
 @export var debug_level := false
 @export var gen_map := false:
 	set(a):
 		_generate_map()
+		_generate_background()
 
 @export var noise : FastNoiseLite = preload("res://scene/world/world_fastnoise.tres")
 @export var frequency := 2.0
@@ -32,14 +37,23 @@ const EXPLOSION = preload("res://scene/effects/explosion.tscn")
 @export var level_image_format 			:= Image.FORMAT_RGBA8 ## IMPORTANT! Need to have an alpha channel.
 @export var level_image_compression 	:= FileAccess.COMPRESSION_FASTLZ ## Check the apply_map_changes() function before changing this.
 
-var land_color := Color.ORANGE
-var land_color_variation := 0.5
+@export var land_border_color := Color.CHOCOLATE
+@export var land_border_size := 0.025
+@export var land_color := Color.ORANGE
+@export var land_color_variation := 0.5
+
+@export var bg_noise : FastNoiseLite
+@export var bg_bottom_color := Color.DARK_BLUE
+@export var bg_top_color := Color.SKY_BLUE
+@export var bg_color_variation := 0.5
+@export var bg_color_step := 0.15
 
 #
 var players_in_game := []
+@export var max_amount_blood_splatter := 15
 
 ## Map Generation
-var map_image 	: Image
+@onready var map_image 	:= Image.new()
 
 var spawn_point_amount := 5
 var spawn_point_radius := 30
@@ -48,9 +62,14 @@ var spawn_points := Array()
 
 @onready var weapons := Weapons.new()
 
+#effect pooling ## TODO not sure if its needed yet
+var bullet_trail_pool 	: Array[Node2D] = []
+var explosion_pool 		: Array[Node2D] = []
+var blood_trail_pool 	: Array[Node2D] = []
+
 func _init():
 	Global.world_node = self
-	
+
 func _ready():
 	Global.player_is_in_game = true
 	rng.seed		 = Global.game_seed
@@ -59,12 +78,14 @@ func _ready():
 	
 	multiplayer.peer_connected.connect(player_joined)
 	multiplayer.peer_disconnected.connect(player_left)
+	
 	multiplayer.server_disconnected.connect( disconnected_from_server )
-	server_update_timer.timeout.connect( push_map_changes )
+	server_update_timer.timeout.connect( push_server_changes )
 	
 	#Global.player_death.connect(add_player)
-	Global.spawn_player.connect(request_add_player)
+	#Global.spawn_player.connect(request_add_player)
 	#Global.create_projectile.connect(create_projectile)
+	Global.player_entered_world.connect(request_add_player)
 	
 	_title_screen()
 	
@@ -72,76 +93,93 @@ func _ready():
 		if multiplayer.is_server():
 			server_update_timer.start()
 
+# startup, title screen map
 func _title_screen():
 	_generate_map()
-	pass
+	_generate_background()
 	
+# server begun hosting or a single player game started.
 func begin_game():
 	if multiplayer.is_server():
 		server_update_timer.start()
 		## force all clients to regenerate the map
 		_generate_map.rpc()
-
-func disconnected_from_server():
-		for node in playground.get_children():
-			node.queue_free()
-		_generate_map()
-		toggle_menu()
-
+		
+# player disconnected and the map returned to the default
 func stop_game():
 	if multiplayer.multiplayer_peer:
 		if multiplayer.is_server():
 			server_update_timer.stop()
-			## force all clients to regenerate the map
-		
+			
+	## force all clients to regenerate the map
 	_generate_map()
+	_generate_background()
 
-# every X seconds, push the current map and game state to all peers
-@rpc("authority","call_remote")
-func push_map_changes():
-	## Update Latency info
-	MultiplayerLobby.update_latency.rpc()
+# player disconnected and the map returned to the default
+func disconnected_from_server():
+	for node in playground.get_children():
+		node.queue_free()
 	
-	var data := map_image.get_data().compress( level_image_compression )
-	if verbose_logs:
-		print( "SENT: raw image data is ", map_image.get_data().size() )
-		print( "SENT: compressed image data is ",data.size() )
-	for node : Node2D in playground.get_children():
-		if node is Player:
-			## Ensure that RPC call arent made to usets in the Lobby
-			var id : int = node.get_multiplayer_authority()
-			apply_map_changes.rpc_id(id, data, map_image.get_data().size() )
-	
-	#title_screen.set_peer_list.rpc( multiplayer.get_peers() )
-
-@rpc("any_peer","call_local")
-func apply_map_changes( remote_data : PackedByteArray, buffer : int):
-	if remote_data is PackedByteArray:
-		
-		var data : PackedByteArray = remote_data.decompress(buffer, level_image_compression)
-		if verbose_logs:
-			print( "RECEIVED: raw image data is ", data.size() )
-			print( "RECEIVED: compressed image data is ",remote_data.size() )
-		map_image.set_data(map_size.x, map_size.y, false, level_image_format, data)
-		level_texture.texture = ImageTexture.create_from_image( map_image )
-	else:
-		print("Unexpected data: ", typeof(remote_data) )
+	Global.game_seed = hash( randi() ) #reset game seed
+	_generate_map()
+	_generate_background()
 
 # function called when a new player joing the current game.
 func player_joined( _id : int):
 	if multiplayer.is_server():
+		Network._update_player_data.rpc_id( _id )
+
+		# Check for all players on the playground right now.
 		for node : Node2D in playground.get_children():
 			if node is Player:
-				_add_prev_player.rpc( node.get_multiplayer_authority() )
+				#_add_curr_player.rpc_id(_id, node.get_multiplayer_authority() )
+				_add_curr_player.rpc_id(_id, node.user_network_id )
+				# apply the name, color and such to the player
+				node.apply_cosmetics()
 
 # function called when a new player leave an ongoing game.
 func player_left( id : int):
 	players_in_game.erase( id )
 	if multiplayer.is_server():
 		_remove_player.rpc( id )
+
+# every X seconds, push the current map and game state to all peers
+@rpc("authority","call_remote","reliable",1)
+func push_server_changes():
+	## Map
+	var data := map_image.get_data().compress( level_image_compression )
+	if verbose_network_logs:
+		print( "SENT: raw image data is ", map_image.get_data().size() / 1e+6,"MB")
+		print( "SENT: compressed image data is ",data.size() / 1e+6,"MB")
+	apply_map_changes.rpc( data, map_image.get_data().size() )
+
+	
+
+@rpc("any_peer","call_local","reliable",1)
+func apply_map_changes( remote_data : PackedByteArray, buffer : int):
+	if remote_data is PackedByteArray:
 		
-#func remove_player( id : int):
-	#_remove_player.rpc( id )
+		var data : PackedByteArray = remote_data.decompress(buffer, level_image_compression)
+		if verbose_network_logs:
+			print( "RECEIVED: raw image data is ", data.size() / 1e+6,"MB" )
+			print( "RECEIVED: compressed image data is ",remote_data.size() / 1e+6,"MB" )
+		map_image.set_data(map_size.x, map_size.y, false, level_image_format, data)
+		level_texture.texture = ImageTexture.create_from_image( map_image )
+	else:
+		print("Unexpected data: ", typeof(remote_data) )
+		
+
+@rpc("authority","call_local")
+func apply_player_changes():
+	for id : int in multiplayer.get_peers():
+		if Network.players_connected.has(id):
+			add_player( id )
+		else:
+			# something desync'ed.
+			breakpoint
+
+#region Multiplayer stuff
+
 	
 @rpc("any_peer","call_local")
 func _remove_player( id : int ):
@@ -164,13 +202,10 @@ func add_curr_player(id : int):
 @rpc("authority","call_local")
 func _add_curr_player(id : int):
 	add_player(id)
-
-@rpc("authority","call_remote")
-func _add_prev_player(id : int):
-	add_player(id)
+	
 
 func add_player(id : int):
-	#var point : Vector2 = map_node.get_spawn_point()
+	#var point : Vector2 = spawn_points.pick_random()
 	var point : Vector2 = Vector2(400,200)
 	var player : Node2D = PLAYER.instantiate()
 	
@@ -183,53 +218,67 @@ func add_player(id : int):
 func request_disconnect():
 	multiplayer.multiplayer_peer.close()
 	#get_tree().change_scene_to_packed( MAIN_MENU )
-	
-@rpc("any_peer","call_local")
-func create_projectile(weapon_id : Weapons.ID, initial_position : Vector2, initial_direction : Vector2):
-	if verbose_logs:
-		print("Rocket requested by ", multiplayer.get_remote_sender_id())
-	_create_projectile.rpc( weapon_id, initial_position, initial_direction )
 
-@rpc("authority","call_local")
-func _create_projectile(weapon_id : Weapons.ID, initial_position : Vector2, initial_direction : Vector2):
-	var projectile : Node2D = weapons.PROJECTILE_DATA[weapon_id].instantiate() ## PLACEHOLDER
-	#projectile.set_multiplayer_authority( user_network_id )
-	projectile.set_position( initial_position )
-	projectile.set_weapon( weapon_id )
-	projectile.set_direction( initial_direction )
-	projectile.name = str( hash(initial_position + initial_direction) )
-	playground.add_child( projectile, true )
-	if verbose_logs:
-		print( "Rocket created by ", multiplayer.get_unique_id() )
+#endregion
 
 ## Map setup
 func _cleanup():
-	for n in spawn_points:
-		n.queue_free()
 	spawn_points.clear()
+
+# This function should be called rarelly.
+func _generate_background():
+	var start := Time.get_ticks_msec()
+	# Drawing via script is pretti fun
+	var bg_image := Image.new()
+	bg_image = Image.create(map_size.x, map_size.y, false, level_image_format)
+	for x  : float in map_size.x - 1:
+		for y  : float in map_size.y - 1:
+			#var pixel : float = fade * (y / map_size.y) + (1 - fade) * noise.get_noise_2d( x * frequency, y * frequency ) 
+			var variation : float = snapped( ( (y / map_size.y * bg_noise.get_noise_2d( x * frequency, y * frequency) + 1) / 2), bg_color_step )
+			
+			var color := bg_bottom_color.lerp( bg_top_color, variation )
+			@warning_ignore("narrowing_conversion")
+			bg_image.set_pixel( x,y,color )
+			
+	background_texture.texture 	= ImageTexture.create_from_image( bg_image )
+	print("_generate_background() took ",Time.get_ticks_msec() - start," msecs.")
 
 @rpc("any_peer","call_local")
 func _generate_map():
+	var start := Time.get_ticks_msec()
 	_cleanup()
-	#map_bitmap = BitMap.new()
+	var behind_map := Image.new()
+	
 	map_image = Image.create(map_size.x, map_size.y, false, level_image_format)
 	map_image.fill( Color.TRANSPARENT )
+	
+	behind_map = Image.create(map_size.x, map_size.y, false, level_image_format)
+	behind_map.fill( Color.TRANSPARENT )
 	
 	if not debug_level:
 		for x  : float in map_size.x - 1:
 			for y  : float in map_size.y - 1:
 				var transparency : float = fade * (y / map_size.y) + (1 - fade) * noise.get_noise_2d( x * frequency, y * frequency )
+				var pixel_color := Color(0,0,0,0)
+				var bg_pixel_color := Color(0,0,0,0)
+				var selected_color := land_border_color
+				
+				if transparency + land_border_size >= threshold and transparency - land_border_size >= threshold:
+					selected_color = land_color
+					
 				if transparency >= threshold:
 					transparency = 1.0
 				else:
 					transparency = 0.0
-					
-				var pixel_color = Color(0,0,0,0)
+				
 				if transparency != 0.0:
-					pixel_color = land_color * ( rng.randf_range(land_color_variation, 1) ) ## Cool effect
+					pixel_color = selected_color * ( rng.randf_range(land_color_variation, 1) ) ## Cool effect
+					bg_pixel_color = land_color * ( rng.randf_range(land_color_variation, 1) ) ## Cool effect
 					
 				@warning_ignore("narrowing_conversion")
 				map_image.set_pixel( x,y,Color(pixel_color, transparency) )
+				@warning_ignore("narrowing_conversion")
+				behind_map.set_pixel( x,y,Color(bg_pixel_color / 2, transparency) ) # a darker color for the back of the level
 				
 	else:
 		@warning_ignore("integer_division")
@@ -243,14 +292,16 @@ func _generate_map():
 				map_image.set_pixel( x,y + (map_size.y / 2),Color(pixel_color, 1.0) )
 			
 	map_image.resize(map_size.x * map_stretch.x, map_size.y * map_stretch.y, Image.INTERPOLATE_NEAREST)
-	#map_bitmap.resize( Vector2i(map_size.x * map_stretch.x, map_size.y * map_stretch.y) )
+	behind_map.resize(map_size.x * map_stretch.x, map_size.y * map_stretch.y, Image.INTERPOLATE_NEAREST)
 	
-	#_generate_spawn_points()
+	_generate_spawn_points()
 	if multiplayer.multiplayer_peer:
 		if multiplayer.is_server():
-			push_map_changes()
+			push_server_changes()
 
-	level_texture.texture = ImageTexture.create_from_image( map_image )
+	level_texture.texture 			= ImageTexture.create_from_image( map_image )
+	behind_level_texture.texture 	= ImageTexture.create_from_image( behind_map )
+	print("_generate_map() took ",Time.get_ticks_msec() - start," msecs.")
 	
 @rpc("any_peer","call_local")
 func get_spawn_point() -> Vector2:
@@ -263,7 +314,7 @@ func _generate_spawn_points():
 		var point := Vector2i( rng.randi_range(0 + spawn_point_radius,map_size.x - spawn_point_radius), rng.randi_range(0 + spawn_point_radius,map_size.y - spawn_point_radius) )
 		
 		_remove_terrain(point, spawn_point_radius) # carve a radius around the point
-		spawn_points.append(point)
+		spawn_points.append( point )
 		
 		# make a floor for the player to stand on
 		@warning_ignore("integer_division")
@@ -280,11 +331,17 @@ func _generate_spawn_points():
 				map_image.set_pixel(new_x ,new_y,Color.PINK )
 			#	map_bitmap.set_bit(new_x ,new_y,true)
 			
-@rpc("any_peer","call_local")
+@rpc("any_peer","call_local","reliable")
 func hitscan(source : Vector2, dir : Vector2, my_range : int, radius : int, sfx : SoundEffect.TYPE, damage : float):
+	if verbose_logs:
+		print("Hitscan requested by ", multiplayer.get_remote_sender_id())
 	_hitscan.rpc(source, dir, my_range, radius, sfx, damage)
 	
-@rpc("authority","call_local")
+	if multiplayer.is_server():
+		_hitscan(source, dir, my_range, radius, sfx, damage)
+	
+#@rpc("authority","call_local","reliable")
+@rpc("authority","call_remote","reliable")
 func _hitscan(source : Vector2, dir : Vector2, my_range : int, radius : int, sfx : SoundEffect.TYPE, damage : float):
 	for i in my_range:
 		var ray_check : Vector2i = source + (dir * i)
@@ -293,23 +350,74 @@ func _hitscan(source : Vector2, dir : Vector2, my_range : int, radius : int, sfx
 			for node in playground.get_children():
 				if node is Player:
 					if node.check_if_is_in_range(ray_check, radius):
+						_add_bullet_trail(source,ray_check)
 						_create_explosion(ray_check, radius, sfx, damage)
 						return
 						
 			# check for terrain hit
 			if is_pixel_set( ray_check ):
+				_add_bullet_trail(source,ray_check)
 				_create_explosion(ray_check, radius, sfx, damage)
 				return
+				
+			elif i == my_range - 1:
+				# did not hit anything, create a trail anyway
+				_add_bullet_trail(source,ray_check)
 		else:
 			# Its outside of the map. stop scanning.
+			_add_bullet_trail(source,ray_check)
 			break
+		
+			
+	if verbose_logs:
+		print( "Hitscan created by ", multiplayer.get_unique_id() )
 
-# every kind of damage can create a explosion.
-@rpc("any_peer","call_local")
-func create_explosion(pos : Vector2, radius : int, sfx : SoundEffect.TYPE, damage : float):
-	_create_explosion.rpc(pos, radius, sfx, damage)
+func _add_bullet_trail(source : Vector2, destination : Vector2):
+	var trail = BULLET_TRAIL.instantiate()
+	playground.add_child(trail,true)
+	trail.setup(source,destination)
 
 @rpc("authority","call_local")
+func _add_blood_splatter(pos : Vector2, dir : Vector2, force : float):
+	for i in max_amount_blood_splatter:
+		var blood = BLOOD_TRAIL.instantiate()
+		playground.add_child(blood,true)
+		blood.setup( pos, - dir.rotated( randf_range(-PI / 2, PI / 2) ), force * randf_range(0.6,1.0))
+
+@rpc("any_peer","call_local","reliable")
+func create_projectile(weapon_id : Weapons.ID, initial_position : Vector2, initial_direction : Vector2):
+	if verbose_logs:
+		print("Rocket requested by ", multiplayer.get_remote_sender_id())
+	_create_projectile.rpc( weapon_id, initial_position, initial_direction )
+	
+	if multiplayer.is_server():
+		_create_projectile( weapon_id, initial_position, initial_direction )
+
+#@rpc("authority","call_local","reliable")
+@rpc("authority","call_remote","reliable")
+func _create_projectile(weapon_id : Weapons.ID, initial_position : Vector2, initial_direction : Vector2):
+	var projectile : Node2D = weapons.PROJECTILE_DATA[weapon_id].instantiate() ## PLACEHOLDER
+	#projectile.set_multiplayer_authority( user_network_id )
+	projectile.set_position( initial_position )
+	projectile.set_weapon( weapon_id )
+	projectile.set_direction( initial_direction )
+	projectile.name = str( hash(initial_position + initial_direction) )
+	playground.add_child( projectile, true )
+	if verbose_logs:
+		print( "Rocket created by ", multiplayer.get_unique_id() )
+
+# every kind of damage can create a explosion.
+@rpc("any_peer","call_local","reliable")
+func create_explosion(pos : Vector2, radius : int, sfx : SoundEffect.TYPE, damage : float):
+	if verbose_logs:
+		print("Explosion requested by ", multiplayer.get_remote_sender_id())
+	#_create_explosion.rpc(pos, radius, sfx, damage)
+	
+	if multiplayer.is_server():
+		_create_explosion.rpc(pos, radius, sfx, damage)
+
+@rpc("authority","call_local","reliable")
+#@rpc("authority","call_remote","reliable")
 func _create_explosion(pos : Vector2, radius : float, sfx : SoundEffect.TYPE, damage : float):
 	# remove the terrain for the explosion ## TODO support adding terrain back
 	_remove_terrain(pos,radius)
@@ -321,13 +429,23 @@ func _create_explosion(pos : Vector2, radius : float, sfx : SoundEffect.TYPE, da
 	effect.sfx = sfx
 	playground.add_child(effect)
 	
-	# check for damage
-	for node in playground.get_children():
-		if node is Player:
-			if node.check_if_is_in_range(pos, radius):
-				node.apply_damage( node.global_position.direction_to( pos ), node.global_position.distance_squared_to( pos ), damage )
-				print("collision!")
-		
+	# only the server can apply damage
+	if multiplayer.is_server():
+		# check for damage
+		var players_damaged := [] # players cant be damaged twice in the same explosion
+		for node in playground.get_children():
+			if node is Player and not players_damaged.has( node ): ## maybe its slow?
+				if node.check_if_is_in_range(pos, radius):
+					players_damaged.append( node )
+					## node.global_position.distance_to( pos ) / radius makes the recoil to be stronger of weaker depending of the distance from the center of the explosion.
+					var force = (node.global_position.distance_to( pos ) / radius) *  radius 
+					var dir = node.global_position.direction_to( pos )
+					node.apply_damage.rpc( dir, force, damage )
+					_add_blood_splatter.rpc( pos, dir, force )
+					print("collision! ",node," direction ",node.global_position.direction_to( pos ))
+				
+	if verbose_logs:
+		print( "explosion created by ", multiplayer.get_unique_id() )
 # https://stackoverflow.com/questions/4590846/how-do-you-loop-through-a-circle-of-values-in-a-2d-array
 func _remove_terrain(pos : Vector2, radius : float):
 	var center := Vector2(pos.x, pos.y)
@@ -378,10 +496,10 @@ func is_inside_the_map(pos : Vector2) -> bool:
 	print("outside")
 	return false
 	
-func toggle_menu():
-	title_screen.visible = not title_screen.visible
-	
-func _input(event):
-	if event is InputEvent:
-		if event.is_action_pressed("menu") and multiplayer.multiplayer_peer:
-			toggle_menu()
+#func toggle_menu(): ## TODO
+	#spawn_screen.visible = not spawn_screen.visible
+	#
+#func _input(event):
+	#if event is InputEvent:
+		#if event.is_action_pressed("menu") and multiplayer.multiplayer_peer:
+			#toggle_menu()

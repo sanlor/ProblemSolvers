@@ -1,0 +1,35 @@
+[gd_scene load_steps=8 format=3 uid="uid://bmjkjltvokesn"]
+
+[ext_resource type="Script" path="res://scene/effects/blood_trail.gd" id="1_c2hwj"]
+[ext_resource type="Texture2D" uid="uid://b5v354eslcs83" path="res://art/player/blood_s.png" id="1_quman"]
+
+[sub_resource type="Gradient" id="Gradient_16ept"]
+offsets = PackedFloat32Array(0, 0.604027)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_ubm1w"]
+gradient = SubResource("Gradient_16ept")
+
+[sub_resource type="Curve" id="Curve_4iuqp"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.782209, 0.660801), -2.01558, -2.01558, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_oh1ne"]
+curve = SubResource("Curve_4iuqp")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_82u1j"]
+gravity = Vector3(0, 0, 0)
+scale_curve = SubResource("CurveTexture_oh1ne")
+color_ramp = SubResource("GradientTexture1D_ubm1w")
+
+[node name="blood" type="Sprite2D"]
+top_level = true
+texture = ExtResource("1_quman")
+script = ExtResource("1_c2hwj")
+
+[node name="GPUParticles2D" type="GPUParticles2D" parent="."]
+amount = 64
+process_material = SubResource("ParticleProcessMaterial_82u1j")
+texture = ExtResource("1_quman")
+
+[connection signal="tree_exiting" from="." to="." method="_on_tree_exiting"]

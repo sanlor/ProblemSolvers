@@ -1,10 +1,82 @@
-[gd_scene load_steps=7 format=3 uid="uid://bw5k1pex2vqm3"]
+[gd_scene load_steps=16 format=3 uid="uid://bw5k1pex2vqm3"]
 
 [ext_resource type="Script" path="res://scene/player/player.gd" id="1_ejxrk"]
 [ext_resource type="Texture2D" uid="uid://bggswxus5u4xq" path="res://art/player/player_s.png" id="2_uxxr3"]
+[ext_resource type="Script" path="res://scene/player/player_controller.gd" id="2_wgsos"]
 [ext_resource type="Texture2D" uid="uid://dd7ijrlxr0p6n" path="res://art/player/temp_weapon_s.png" id="3_nfl1u"]
 [ext_resource type="Texture2D" uid="uid://k4gtp0ydjryw" path="res://art/player/aim.png" id="3_re2vi"]
 [ext_resource type="Script" path="res://scene/world/network_ui.gd" id="5_2pucm"]
+[ext_resource type="Script" path="res://scene/player/player_debug_stuff.gd" id="5_ph4fb"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_uk4k7"]
+atlas = ExtResource("2_uxxr3")
+region = Rect2(32, 0, 8, 8)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pvhmw"]
+atlas = ExtResource("2_uxxr3")
+region = Rect2(16, 0, 8, 8)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_aoaoq"]
+atlas = ExtResource("2_uxxr3")
+region = Rect2(24, 0, 8, 8)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j0nd1"]
+atlas = ExtResource("2_uxxr3")
+region = Rect2(0, 0, 8, 8)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rnpyu"]
+atlas = ExtResource("2_uxxr3")
+region = Rect2(0, 0, 8, 8)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yrrmh"]
+atlas = ExtResource("2_uxxr3")
+region = Rect2(8, 0, 8, 8)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_l68uu"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_uk4k7")
+}],
+"loop": true,
+"name": &"flying",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pvhmw")
+}],
+"loop": true,
+"name": &"hurt",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_aoaoq")
+}],
+"loop": true,
+"name": &"jumping",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_j0nd1")
+}],
+"loop": true,
+"name": &"standing",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rnpyu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yrrmh")
+}],
+"loop": true,
+"name": &"walk",
+"speed": 5.0
+}]
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_utq8v"]
 properties/0/path = NodePath(".:position")
@@ -15,26 +87,26 @@ properties/1/spawn = true
 properties/1/replication_mode = 2
 properties/2/path = NodePath(".:user_network_id")
 properties/2/spawn = true
-properties/2/replication_mode = 1
-properties/3/path = NodePath(".:curr_weapon_sprite")
+properties/2/replication_mode = 2
+properties/3/path = NodePath("pivot:rotation")
 properties/3/spawn = true
 properties/3/replication_mode = 1
-properties/4/path = NodePath("pivot:rotation")
+properties/4/path = NodePath("pivot/weapon:flip_v")
 properties/4/spawn = true
-properties/4/replication_mode = 1
-properties/5/path = NodePath("pivot/weapon:flip_v")
+properties/4/replication_mode = 2
+properties/5/path = NodePath(".:life")
 properties/5/spawn = true
-properties/5/replication_mode = 1
-properties/6/path = NodePath(".:life")
+properties/5/replication_mode = 2
+properties/6/path = NodePath(".:curr_i_frame")
 properties/6/spawn = true
 properties/6/replication_mode = 1
-properties/7/path = NodePath(".:curr_i_frame")
+properties/7/path = NodePath(".:curr_recovery_time")
 properties/7/spawn = true
 properties/7/replication_mode = 1
-properties/8/path = NodePath(".:curr_recovery_time")
+properties/8/path = NodePath(".:curr_state")
 properties/8/spawn = true
-properties/8/replication_mode = 1
-properties/9/path = NodePath(".:curr_team")
+properties/8/replication_mode = 2
+properties/9/path = NodePath(".:curr_weapon_id")
 properties/9/spawn = true
 properties/9/replication_mode = 1
 
@@ -42,9 +114,14 @@ properties/9/replication_mode = 1
 script = ExtResource("1_ejxrk")
 current_loadout = Array[int]([0, 1, 2])
 collision_rect = Rect2(-2, -2, 4, 6)
+i_frame = 0.25
 
-[node name="main_sprite" type="Sprite2D" parent="."]
-texture = ExtResource("2_uxxr3")
+[node name="player_controller" type="Node" parent="."]
+script = ExtResource("2_wgsos")
+
+[node name="main_sprite" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_l68uu")
+animation = &"standing"
 
 [node name="land_check" type="Marker2D" parent="main_sprite"]
 position = Vector2(0, 4)
@@ -88,9 +165,39 @@ position = Vector2(10, 0)
 position = Vector2(42, 0)
 texture = ExtResource("3_re2vi")
 
-[node name="line" type="Line2D" parent="pivot"]
-points = PackedVector2Array(18, 0, 38, 0)
-width = 1.0
+[node name="debug_stuff" type="Node2D" parent="."]
+script = ExtResource("5_ph4fb")
+enable_debug_state = true
+enable_debug_force = true
+enable_debug_iframe = true
+
+[node name="player_DEBUG" type="Label" parent="debug_stuff"]
+visible = false
+custom_minimum_size = Vector2(100, 0)
+offset_left = -50.0
+offset_top = -29.0
+offset_right = 50.0
+offset_bottom = -6.0
+text = "1"
+horizontal_alignment = 1
+
+[node name="debug_FORCE" type="Line2D" parent="debug_stuff"]
+visible = false
+points = PackedVector2Array(0, 0, 0, 0)
+width = 2.0
+default_color = Color(1, 0, 1, 1)
+
+[node name="debug_IFRAME" type="Label" parent="debug_stuff"]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_top = -57.0
+offset_right = 20.0
+offset_bottom = -34.0
+grow_horizontal = 2
+horizontal_alignment = 1
 
 [node name="player_name" type="Label" parent="."]
 anchors_preset = 5
@@ -103,12 +210,6 @@ grow_horizontal = 2
 scale = Vector2(0.5, 0.5)
 pivot_offset = Vector2(100, 15)
 horizontal_alignment = 1
-
-[node name="player_DEBUG" type="Label" parent="."]
-visible = false
-offset_top = -9.0
-offset_right = 40.0
-offset_bottom = 14.0
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
 replication_config = SubResource("SceneReplicationConfig_utq8v")
