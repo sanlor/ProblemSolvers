@@ -4,7 +4,6 @@ extends Node2D
 
 var PLAYER 		= load("res://scene/player/player.tscn")
 const EXPLOSION = preload("res://scene/effects/explosion.tscn")
-const BLOOD_TRAIL = preload("res://scene/effects/blood_trail.tscn")
 const BULLET_TRAIL = preload("res://scene/effects/bullet_trail.tscn")
 
 @onready var playground = $playground
@@ -50,7 +49,7 @@ const BULLET_TRAIL = preload("res://scene/effects/bullet_trail.tscn")
 
 #
 var players_in_game := []
-@export var max_amount_blood_splatter := 15
+
 
 ## Map Generation
 @onready var map_image 	:= Image.new()
@@ -377,13 +376,6 @@ func _add_bullet_trail(source : Vector2, destination : Vector2):
 	playground.add_child(trail,true)
 	trail.setup(source,destination)
 
-@rpc("authority","call_local")
-func _add_blood_splatter(pos : Vector2, dir : Vector2, force : float):
-	for i in max_amount_blood_splatter:
-		var blood = BLOOD_TRAIL.instantiate()
-		playground.add_child(blood,true)
-		blood.setup( pos, - dir.rotated( randf_range(-PI / 2, PI / 2) ), force * randf_range(0.6,1.0))
-
 @rpc("any_peer","call_local","reliable")
 func create_projectile(weapon_id : Weapons.ID, initial_position : Vector2, initial_direction : Vector2):
 	if verbose_logs:
@@ -441,8 +433,10 @@ func _create_explosion(pos : Vector2, radius : float, sfx : SoundEffect.TYPE, da
 					var force = (node.global_position.distance_to( pos ) / radius) *  radius 
 					var dir = node.global_position.direction_to( pos )
 					node.apply_damage.rpc( dir, force, damage )
-					_add_blood_splatter.rpc( pos, dir, force )
-					print("collision! ",node," direction ",node.global_position.direction_to( pos ))
+					
+					if not node.check_health(): # Return true if life is above 0
+						#Player is dead, broadcast it to all peers
+						node.kill_player( true )
 				
 	if verbose_logs:
 		print( "explosion created by ", multiplayer.get_unique_id() )
@@ -463,6 +457,27 @@ func _remove_terrain(pos : Vector2, radius : float):
 				if Global.game_area.has_point( Vector2i(new_x,new_y) ):
 					map_image.set_pixel(new_x,new_y,Color(0,0,0,0))
 	level_texture.texture = ImageTexture.create_from_image( map_image )
+	
+@rpc("any_peer","call_local","reliable")
+func stain_terrain(pos : Vector2, radius : int):
+	_stain_terrain.rpc(pos, radius)
+	
+@rpc("authority","call_local","reliable")
+func _stain_terrain(pos : Vector2, radius : int): ## after the blood drop hits the floor, it should stain the floor
+	for x : float in radius:
+		for y : float in radius:
+			@warning_ignore("narrowing_conversion")
+			@warning_ignore("integer_division")
+			var new_x : int = pos.x - x + (radius / 2)
+			@warning_ignore("narrowing_conversion")
+			@warning_ignore("integer_division")
+			var new_y : int = pos.y - y + (radius / 2)
+			@warning_ignore("integer_division")
+			@warning_ignore("narrowing_conversion")
+			if pos.distance_to( Vector2(new_x,new_y).round() ) < radius / 2:
+				if Global.game_area.has_point( Vector2(new_x,new_y).round() ):
+					if map_image.get_pixel(new_x,new_y) != Color.TRANSPARENT:
+						map_image.set_pixel(new_x,new_y, Color.RED )
 
 func is_colliding_with_something(pos : Vector2):
 	if is_pixel_set(pos):

@@ -10,6 +10,8 @@ var curr_state = STATE.STANDING :
 ## HURT - Being hurt, exploded and bouncing off walls
 ## FLYING - Using jetpack (TODO)
 
+const BLOOD_TRAIL = preload("res://scene/effects/blood_trail.tscn")
+
 @onready var camera_2d = $Camera2D
 
 @onready var pivot = $pivot
@@ -62,6 +64,9 @@ var curr_state = STATE.STANDING :
 var curr_i_frame := 0.0
 @export var recovery_time := 5.0 ## When you are HURT and stopped moving, how long should you stay in the HURT state?
 var curr_recovery_time := 0.0
+
+var is_dead := false
+var dead_time := 4.0
 
 var curr_team : int
 var curr_player_name := ""
@@ -201,6 +206,13 @@ func _cooldown( delta ):
 	if curr_i_frame >= 0.0:
 		curr_i_frame -= 1 * delta
 
+# world node should call this. return true if health is above 0
+func check_health() -> bool:
+	if life >= 0.0:
+		return true
+	else:
+		return false
+
 ## Any_peer might be overkill.
 @rpc("any_peer","call_local")
 func apply_damage(direction : Vector2, recoil : float, amount : float):
@@ -210,9 +222,33 @@ func apply_damage(direction : Vector2, recoil : float, amount : float):
 		curr_i_frame = i_frame
 		life -= amount
 		_apply_recoil( direction, recoil, true )
+		_add_blood_splatter( direction, recoil )
 	else:
 		#print("iframe")
 		pass
+
+# If thealt is 0, kill the player with some special effects.
+@rpc("any_peer","call_local")
+func kill_player( draw_blood : bool):
+	print("DEAD")
+	is_dead = true
+	main_sprite.visible = false
+	weapon_sprite.visible = false
+	if draw_blood:
+		_add_blood_splatter( Vector2.UP, 10, Global.max_amount_blood_splatter * 3, true )
+	await get_tree().create_timer(dead_time).timeout
+	Global.player_death.emit( multiplayer.get_unique_id() )
+	queue_free()
+
+func _add_blood_splatter( direction : Vector2, force : float, amount := Global.max_amount_blood_splatter, is_bone := false):
+	for i in amount:
+		var blood = BLOOD_TRAIL.instantiate()
+		var bone := false
+		if is_bone:
+			if randi_range(0,9) > 7:
+				bone = true
+		add_sibling(blood,true)
+		blood.setup( global_position, - direction.rotated( randf_range(-PI / 2, PI / 2) ), force * randf_range(0.6,1.0), bone)
 
 func _apply_recoil(direction : Vector2, recoil : float, force : bool = false):
 	# Apply a inverted force to the player
@@ -339,9 +375,7 @@ func _notification(what):
 
 func _process( delta ):
 	if global_position.y >= Global.game_area.end.y:
-		Global.emit_signal( "player_death", multiplayer.get_unique_id() )
-		print(self," is dead (OOB) ",global_position.abs())
-		queue_free()
+		kill_player(false)
 	
 	_update_animation()
 	
@@ -349,18 +383,16 @@ func _process( delta ):
 		#disconnected from server
 		queue_free() 
 		
-	elif is_multiplayer_authority():
+	elif is_multiplayer_authority() and not is_dead: # cant control the player if its dead
 		_user_input()	
 		_update_line()
 		_cooldown( delta )
 		_collision_check( )
-
-		#print(velocity)
 		position += velocity * delta ## Apply velocity after all calculations.
 		
 		if curr_state == STATE.HURT:
 			# firction applied by the _collision_check().
-			print(velocity.length())
+			#print(velocity.length())
 			if velocity.length() < 6.0 and has_touched_ground: ## 1 is TEMP
 				curr_state = STATE.STANDING ## TODO improve this. players can recover midair
 	else:

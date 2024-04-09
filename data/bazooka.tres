@@ -8,7 +8,7 @@
 script = ExtResource("1_vswap")
 weapon_id = 2
 weapon_name = "Bazooka"
-damage = 30
+damage = 50
 blast_radius = 100
 firerate = 0.5
 fire_spread = 0.0

@@ -14,6 +14,8 @@ var game_seed 			:= hash("poop")
 ## server check
 var has_initial_server_data := false
 
+## Game settins
+var max_amount_blood_splatter := 15 # being shot
 
 var player_data_update_time := 1.0
 
