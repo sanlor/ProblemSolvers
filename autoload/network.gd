@@ -9,7 +9,7 @@ const DEFAULT_SERVER_IP 		:= "127.0.0.1" # IPv4 localhost
 const MAX_CONNECTIONS 			:= 8
 const SERVER_NAME 				:= "DEV_main_server"
 
-var custom_dev_server 			:= "sanlo.duckdns.org" #DEFAULT_SERVER_IP
+var custom_dev_server 			:= DEFAULT_SERVER_IP
 var custom_port 				:= PORT
 var custom_max_connections 		:= MAX_CONNECTIONS
 var custom_server_name 			:= SERVER_NAME
