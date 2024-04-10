@@ -1,8 +1,8 @@
 extends PanelContainer
 
-@onready var team_p = $VBoxContainer/teams/problem/team_p
-@onready var team_s = $VBoxContainer/teams/solvers/team_s
-@onready var l_lobby = $VBoxContainer/lobby/lobby
+@onready var team_p = $MarginContainer/VBoxContainer/teams/problem/team_p
+@onready var team_s = $MarginContainer/VBoxContainer/teams/solvers/team_s
+@onready var l_lobby = $MarginContainer/VBoxContainer/lobby/lobby
 
 var curr_player_data_update_time := 0.0
 

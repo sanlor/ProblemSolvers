@@ -8,13 +8,14 @@
 script = ExtResource("1_vswap")
 weapon_id = 2
 weapon_name = "Bazooka"
-damage = 50
-blast_radius = 100
+damage = 35
+blast_radius = 60
 firerate = 0.5
 fire_spread = 0.0
 fire_range = 500.0
 sprite = ExtResource("3_c53wu")
 recoil_force = 15.0
+cooldown_cost = 60.0
 is_hitscan = false
 is_gravity_affected = false
 can_leave_trail = true

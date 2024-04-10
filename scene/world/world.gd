@@ -254,6 +254,9 @@ func _generate_map():
 	behind_map = Image.create(map_size.x, map_size.y, false, level_image_format)
 	behind_map.fill( Color.TRANSPARENT )
 	
+	level_texture.texture 			= ImageTexture.create_from_image( map_image )
+	behind_level_texture.texture 	= ImageTexture.create_from_image( behind_map )
+	
 	if not debug_level:
 		for x  : float in map_size.x - 1:
 			for y  : float in map_size.y - 1:
@@ -298,8 +301,9 @@ func _generate_map():
 		if multiplayer.is_server():
 			push_server_changes()
 
-	level_texture.texture 			= ImageTexture.create_from_image( map_image )
-	behind_level_texture.texture 	= ImageTexture.create_from_image( behind_map )
+	level_texture.texture.update( map_image )
+	behind_level_texture.texture.update( behind_map )
+	
 	print("_generate_map() took ",Time.get_ticks_msec() - start," msecs.")
 	
 @rpc("any_peer","call_local")
@@ -413,7 +417,6 @@ func create_explosion(pos : Vector2, radius : int, sfx : SoundEffect.TYPE, damag
 func _create_explosion(pos : Vector2, radius : float, sfx : SoundEffect.TYPE, damage : float):
 	# remove the terrain for the explosion ## TODO support adding terrain back
 	_remove_terrain(pos,radius)
-	
 	# apply animation to the explosion
 	var effect := EXPLOSION.instantiate()
 	effect.position = pos
@@ -436,10 +439,14 @@ func _create_explosion(pos : Vector2, radius : float, sfx : SoundEffect.TYPE, da
 					
 					if not node.check_health(): # Return true if life is above 0
 						#Player is dead, broadcast it to all peers
-						node.kill_player( true )
-				
+						node.kill_player.rpc( true )
 	if verbose_logs:
 		print( "explosion created by ", multiplayer.get_unique_id() )
+
+@rpc("any_peer","call_local","reliable")
+func request_death( player_node : Player ):
+	player_node.kill_player.rpc( false )
+	
 # https://stackoverflow.com/questions/4590846/how-do-you-loop-through-a-circle-of-values-in-a-2d-array
 func _remove_terrain(pos : Vector2, radius : float):
 	var center := Vector2(pos.x, pos.y)
@@ -456,7 +463,8 @@ func _remove_terrain(pos : Vector2, radius : float):
 			if center.distance_to( Vector2(new_x,new_y).round() ) < radius / 2:
 				if Global.game_area.has_point( Vector2i(new_x,new_y) ):
 					map_image.set_pixel(new_x,new_y,Color(0,0,0,0))
-	level_texture.texture = ImageTexture.create_from_image( map_image )
+	#level_texture.texture = ImageTexture.create_from_image( map_image )
+	level_texture.texture.update( map_image )
 	
 @rpc("any_peer","call_local","reliable")
 func stain_terrain(pos : Vector2, radius : int):
@@ -476,9 +484,12 @@ func _stain_terrain(pos : Vector2, radius : int): ## after the blood drop hits t
 			@warning_ignore("narrowing_conversion")
 			if pos.distance_to( Vector2(new_x,new_y).round() ) < radius / 2:
 				if Global.game_area.has_point( Vector2(new_x,new_y).round() ):
-					if map_image.get_pixel(new_x,new_y) != Color.TRANSPARENT:
-						map_image.set_pixel(new_x,new_y, Color.RED )
-
+					var curr_pixel := map_image.get_pixel(new_x,new_y)
+					if not is_equal_approx(curr_pixel.a, 0.0): # if the pixel is not transparent, add blood
+						map_image.set_pixel(new_x,new_y, curr_pixel.lerp(Color.RED, randf_range(0.25,0.75) ) )
+						
+	level_texture.texture.update( map_image )
+	
 func is_colliding_with_something(pos : Vector2):
 	if is_pixel_set(pos):
 		return true

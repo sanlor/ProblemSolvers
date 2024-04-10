@@ -21,6 +21,7 @@ var PROJECTILE_DATA := {
 @export var fire_range : float = 500.0
 @export var sprite : Texture2D
 @export var recoil_force : float
+@export var cooldown_cost : float ## how much the player can fire a weapon before waiting
 @export var is_hitscan : bool ## is the damage instant?
 @export var is_gravity_affected : bool ## if its not instant, is afffected by gravity (ex: a missile or a granade)
 @export var can_leave_trail : bool

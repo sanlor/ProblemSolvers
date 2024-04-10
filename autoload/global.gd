@@ -18,6 +18,7 @@ var has_initial_server_data := false
 var max_amount_blood_splatter := 15 # being shot
 
 var player_data_update_time := 1.0
+var game_time_to_spawn := 3
 
 var player_is_in_game := false
 var player_is_spawned 	:= false :
@@ -35,6 +36,7 @@ var curr_GAME_STATE = GAME_STATE.CONNECTION :
 ## Signals
 signal game_state_changed (state : GAME_STATE)
 signal show_connection_screen # force open the connection screen in case of a disconnection or pressing ESC
+signal show_spawn_screen
 
 signal player_entered_world( player_id : int) ## called by the UI
 

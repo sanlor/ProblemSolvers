@@ -7,13 +7,14 @@
 script = ExtResource("1_xidbr")
 weapon_id = 0
 weapon_name = "Handgun"
-damage = 2
+damage = 5
 blast_radius = 15
 firerate = 0.15
 fire_spread = 0.0
 fire_range = 200.0
 sprite = ExtResource("2_78c4w")
 recoil_force = 15.0
+cooldown_cost = 10.0
 is_hitscan = true
 is_gravity_affected = false
 can_leave_trail = false

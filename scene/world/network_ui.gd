@@ -1,12 +1,9 @@
-extends CanvasLayer
+extends CanvasLayer ## DEPRECATED
 
 @onready var world = $".."
 
 func _ready():
 	set_multiplayer_authority( multiplayer.get_unique_id() )
-	#player_id.text = str( multiplayer.get_unique_id() )
-	#Global.player_death.connect( func(_x): spawn_button.disabled = not Global.player_is_spawned )
-	#Global.spawn_player.connect( func(_x): spawn_button.disabled = not Global.player_is_spawned )
 
 func _on_spawn_pressed():
 	Global.spawn_player.emit( multiplayer.get_unique_id() )

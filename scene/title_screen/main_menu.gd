@@ -19,6 +19,7 @@ extends CanvasLayer
 var curr_network_state
 
 func _ready():
+	visible = true
 	multiplayer.multiplayer_peer = null
 	Global.player_is_in_game = false
 	
@@ -54,6 +55,7 @@ func _on_join_dev_server_pressed():
 	if error:
 		print( "cant connect to server. ",error )
 	server_warning.visible = false
+	await get_tree().process_frame
 
 func _on_join_custom_server_pressed():
 	var add : String = custom_server_address.placeholder_text
@@ -74,6 +76,7 @@ func _on_join_custom_server_pressed():
 	if error:
 		print( "cant connect to server. ",error )
 	server_warning.visible = false
+	await get_tree().process_frame
 	
 func _on_disconnect_pressed():
 	multiplayer.multiplayer_peer.close()
@@ -124,12 +127,6 @@ func _process(_delta):
 		server_warning.visible = false
 		server_status.text = "Disconnected."
 
-# Player is connected to the server and wants to joing the game
-func _on_join_pressed():
-	#Network.player_data = spawn_screen.get_player_data()
-	Network.update_player_data.rpc_id(1, spawn_screen.get_player_data(), multiplayer.get_unique_id() )
-	Global.player_entered_world.emit( multiplayer.get_unique_id() )
+
 	
-	#world.request_add_player( multiplayer.get_unique_id() )
-	Global.curr_GAME_STATE = Global.GAME_STATE.IN_GAME
 	#world.toggle_menu()

@@ -15,7 +15,7 @@ var custom_server_name 			:= SERVER_NAME
 
 var connected_server_name := ""
 
-enum {ID}
+#enum {ID}
 enum {NAME,TEAM,COLOR,IS_PLAYING,LATENCY}
 enum {NONE, PROBLEM, SOLVERS}
 
@@ -47,7 +47,8 @@ func _ready():
 func _on_player_connected(id):
 	# Update "players_connected" with the default player data
 	players_connected[id] = player_data
-	players_connected[id][NAME] = str(id)
+	#players_connected[id][NAME] = str(id)
+	print("Player ",id," joined the server")
 
 	
 func _on_player_disconnected(id):
@@ -148,8 +149,8 @@ func update_latency():
 				push_warning("Issue with peer or dictionary")
 
 @rpc("any_peer","call_local")
-func update_player_data (data : Dictionary, id : int):
-	players_connected[ id ] = data
+func update_player_data ( data : Dictionary ):
+	players_connected[ multiplayer.get_remote_sender_id() ] = data
 	_update_player_data.rpc( players_connected )
 	
 @rpc("authority","call_remote")
