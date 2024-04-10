@@ -13,6 +13,7 @@ var game_seed 			:= hash("poop")
 
 ## server check
 var has_initial_server_data := false
+var server_only := false
 
 ## Game settins
 var max_amount_blood_splatter := 15 # being shot
@@ -31,12 +32,14 @@ var curr_GAME_STATE = GAME_STATE.CONNECTION :
 	set(state):
 		curr_GAME_STATE = state
 		game_state_changed.emit( curr_GAME_STATE )
-		print("Changed game state to ", GAME_STATE.keys()[ curr_GAME_STATE ])
+		#print("Changed game state to ", GAME_STATE.keys()[ curr_GAME_STATE ])
 
 ## Signals
 signal game_state_changed (state : GAME_STATE)
 signal show_connection_screen # force open the connection screen in case of a disconnection or pressing ESC
 signal show_spawn_screen
+
+signal begin_game # Headless server wants to start the game
 
 signal player_entered_world( player_id : int) ## called by the UI
 

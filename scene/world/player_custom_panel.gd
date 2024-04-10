@@ -18,6 +18,9 @@ var random_names := [
 
 func _ready():
 	set_process(false)
+	Global.begin_game.connect( _custom_startup )
+	
+func _custom_startup():
 	color_picker.value_changed.connect( func(_c): _apply_selected_color() )
 	
 	color_picker.value = ( randf_range( 0, 1 ) ) # select random image
@@ -27,6 +30,8 @@ func _ready():
 	
 	## Apply default data to player data
 	Network.player_data[Network.NAME] = player_name.placeholder_text.capitalize()
+	if multiplayer.is_server():
+		Network.player_data[Network.NAME] += " (S)" # S for server
 	Network.player_data[Network.COLOR] = _get_selected_color()
 
 func _get_selected_color() -> Color:

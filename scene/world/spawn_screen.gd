@@ -12,11 +12,12 @@ extends CanvasLayer
 @onready var player_custom_panel = $player_custom
 
 func _ready():
+	if Global.server_only:
+		return
+		
 	Global.game_state_changed.connect( _change_visibility )
 	Global.show_spawn_screen.connect( can_player_spawn )
 	
-	
-
 func _change_visibility(state : Global.GAME_STATE):
 	if state == Global.GAME_STATE.SPAWN:
 		visible = true

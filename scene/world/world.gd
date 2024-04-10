@@ -85,12 +85,9 @@ func _ready():
 	#Global.spawn_player.connect(request_add_player)
 	#Global.create_projectile.connect(create_projectile)
 	Global.player_entered_world.connect(request_add_player)
+	Global.begin_game.connect( begin_game )
 	
 	_title_screen()
-	
-	if multiplayer.multiplayer_peer:
-		if multiplayer.is_server():
-			server_update_timer.start()
 
 # startup, title screen map
 func _title_screen():
@@ -101,6 +98,7 @@ func _title_screen():
 func begin_game():
 	if multiplayer.is_server():
 		server_update_timer.start()
+		print("server_update_timer started!")
 		## force all clients to regenerate the map
 		_generate_map.rpc()
 		
@@ -151,10 +149,11 @@ func push_server_changes():
 		print( "SENT: raw image data is ", map_image.get_data().size() / 1e+6,"MB")
 		print( "SENT: compressed image data is ",data.size() / 1e+6,"MB")
 	apply_map_changes.rpc( data, map_image.get_data().size() )
+	apply_spawn_points.rpc( spawn_points )
 
 	
 
-@rpc("any_peer","call_local","reliable",1)
+@rpc("authority","call_remote","reliable",1)
 func apply_map_changes( remote_data : PackedByteArray, buffer : int):
 	if remote_data is PackedByteArray:
 		
@@ -167,6 +166,10 @@ func apply_map_changes( remote_data : PackedByteArray, buffer : int):
 	else:
 		print("Unexpected data: ", typeof(remote_data) )
 		
+
+@rpc("authority","call_remote","reliable",1)
+func apply_spawn_points(s : Array):
+	spawn_points = s
 
 @rpc("authority","call_local")
 func apply_player_changes():
@@ -204,8 +207,8 @@ func _add_curr_player(id : int):
 	
 
 func add_player(id : int):
-	#var point : Vector2 = spawn_points.pick_random()
-	var point : Vector2 = Vector2(400,200)
+	var point : Vector2 = spawn_points.pick_random()
+	#var point : Vector2 = Vector2(400,200)
 	var player : Node2D = PLAYER.instantiate()
 	
 	player.user_network_id = id 

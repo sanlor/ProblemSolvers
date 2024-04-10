@@ -5,10 +5,11 @@ extends Node
 signal got_server_player_data
 
 const PORT := 6969
-const DEFAULT_SERVER_IP := "127.0.0.1" # IPv4 localhost
-const MAX_CONNECTIONS := 8
-const SERVER_NAME := "DEV_main_server"
+const DEFAULT_SERVER_IP 		:= "127.0.0.1" # IPv4 localhost
+const MAX_CONNECTIONS 			:= 8
+const SERVER_NAME 				:= "DEV_main_server"
 
+var custom_dev_server 			:= "sanlo.duckdns.org" #DEFAULT_SERVER_IP
 var custom_port 				:= PORT
 var custom_max_connections 		:= MAX_CONNECTIONS
 var custom_server_name 			:= SERVER_NAME
@@ -49,30 +50,29 @@ func _on_player_connected(id):
 	players_connected[id] = player_data
 	#players_connected[id][NAME] = str(id)
 	print("Player ",id," joined the server")
-
 	
 func _on_player_disconnected(id):
 	players_connected.erase(id)
 	
 ## peer only
 func _connected_to_server():
-	set_server_name()
+	set_server_name.rpc_id(1)
 		
 ## peer only
 func _on_server_disconnected():
 	multiplayer.multiplayer_peer = null
-	print("Disconnected from server")
+	print("Disconnected from server ",custom_dev_server)
 	
 func _on_connected_fail():
 	multiplayer.multiplayer_peer = null
-	print("Cant connect to server.")
+	print("Cant connect to server ",custom_dev_server)
 	
 func _check_arguments():
-	var is_headless := false
+	
 	for argument in OS.get_cmdline_args():
 		# Parse valid command-line arguments into a dictionary
 		if argument.find("=") > -1:
-			is_headless = true
+			Global.server_only = true
 			var key_value = argument.split("=")
 			if key_value[0].lstrip("--") == "PORT" or key_value[0].lstrip("--") == "port":
 				custom_port = int(key_value[1])
@@ -81,7 +81,7 @@ func _check_arguments():
 				custom_max_connections = int(key_value[1])
 				print("Max connections set to ",custom_max_connections)
 			elif key_value[0].lstrip("--") == "NAME" or key_value[0].lstrip("--") == "name":
-				custom_max_connections = int(key_value[1])
+				custom_server_name = str(key_value[1])
 				print("Server name set to ",custom_server_name )
 			else:
 				print("invalid argument: ", key_value[0])
@@ -90,10 +90,11 @@ func _check_arguments():
 				print("-NAME=my_server: set the server name to 'my_server'.")
 				get_tree().quit()
 				
-	if is_headless:
+	if Global.server_only:
 		await get_tree().process_frame
-		start_server_only()
 		print(Time.get_datetime_string_from_system(),": starting server ",custom_server_name," with port ", custom_port, " and ", custom_max_connections, " max clients.")
+		start_server_only()
+		Global.begin_game.emit()
 
 func start_server_only():
 	#multiplayer.multiplayer_peer.close()
@@ -105,6 +106,7 @@ func start_server_only():
 	print("server started")
 	multiplayer.multiplayer_peer = peer
 	multiplayer.multiplayer_peer.set_target_peer( MultiplayerPeer.TARGET_PEER_BROADCAST )
+	print("Begining game... NOW ")
 
 func create_server():
 	start_server_only()
@@ -113,7 +115,7 @@ func create_server():
 	
 func join_server(add := ""):
 	var peer = ENetMultiplayerPeer.new()
-	var server = DEFAULT_SERVER_IP
+	var server = custom_dev_server
 	var port = custom_port ## TODO 
 	if add != "":
 		server = add
@@ -127,9 +129,13 @@ func join_server(add := ""):
 func remove_multiplayer_peer():
 	multiplayer.multiplayer_peer = null
 
-@rpc("any_peer","call_remote")
+@rpc("any_peer","call_local")
 func set_server_name():
-	connected_server_name = custom_server_name
+	_set_server_name.rpc_id( multiplayer.get_remote_sender_id(), custom_server_name )
+
+@rpc("authority","call_remote")
+func _set_server_name( n : String):
+	connected_server_name = n
 
 @rpc("any_peer")
 func get_server_name() -> String:
@@ -144,7 +150,7 @@ func update_latency():
 		else:
 			if players_connected.has(id):
 				players_connected[id][LATENCY] = peer.get_statistic( ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME )
-				print( "Player ",id,", latency ", peer.get_statistic( ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME ) )
+				#print( "Player ",id,", latency ", peer.get_statistic( ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME ) )
 			else:
 				push_warning("Issue with peer or dictionary")
 

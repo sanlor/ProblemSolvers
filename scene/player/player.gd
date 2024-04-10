@@ -78,7 +78,7 @@ var is_jetpack_active := false
 @export var jetpack_discharge := 15.0
 @export var jetpack_recharge := 10
 
-var weapon_cooldown_recharge := 15.0
+var weapon_cooldown_recharge := 20.0
 
 var curr_team : int
 var curr_player_name := ""
@@ -133,7 +133,7 @@ func _exit_tree():
 		# only the current player can do this.
 		if is_multiplayer_authority():
 			Global.player_is_spawned = false
-			Global.show_spawn_screen.emit()
+			#Global.show_spawn_screen.emit()
 
 func _update_life_bar():
 	life_bar.value = life
@@ -167,10 +167,12 @@ func _shoot_weapon():
 			_apply_recoil	( bullet_direction, current_weapon.recoil_force )
 			weapon_cooldown.value -= curr_cooldown_cost
 		else:
-			print("debug weapon cooldown")
+			#print("debug weapon cooldown")
+			pass
 		
 	else:
-		push_warning("no weapons")
+		#push_warning("no weapons")
+		pass
 
 func check_if_is_in_range(pos : Vector2, radius : float) -> bool:
 	if global_position.distance_to(pos) < radius / 1.8:
@@ -391,7 +393,7 @@ func _collision_check( ):
 				
 	if is_near_wall_left and is_near_wall_right: ## DEBUG
 		has_touched_ground = true
-		print("sandwich")
+		print("Player ",multiplayer.get_unique_id(), "stuck in the wall.")
 
 func _update_animation():
 	# if dir == 0, do nothing

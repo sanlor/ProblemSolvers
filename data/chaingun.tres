@@ -7,9 +7,9 @@
 script = ExtResource("1_vswap")
 weapon_id = 1
 weapon_name = "Chaingun"
-damage = 1
+damage = 5
 blast_radius = 10
-firerate = 0.05
+firerate = 0.075
 fire_spread = 0.0
 fire_range = 100.0
 sprite = ExtResource("2_02di6")

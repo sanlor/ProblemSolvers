@@ -25,6 +25,13 @@ func _ready():
 	
 	_set_disconnected()
 	
+	if OS.has_feature("web"): # HTML5 doesnt support multiplayer
+		host_server.disabled = true
+		join_custom_server.disabled = true
+		join_dev_server.disabled = true
+		server_warning.visible = true
+		server_warning.text = "Multiplayer functionality is disabled for the HTML5 build."
+		
 	Global.game_state_changed.connect( _change_visibility )
 	Global.show_connection_screen.connect( func(): visible = not visible ) # toggle visibility
 	
@@ -38,7 +45,8 @@ func _change_visibility(state : Global.GAME_STATE):
 
 func _on_single_player_pressed():
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
-	world.begin_game()
+	Global.begin_game.emit()
+	#world.begin_game()
 	#world.request_add_player( multiplayer.get_unique_id() )
 	#world.toggle_menu()
 
@@ -48,14 +56,17 @@ func _on_host_server_pressed():
 		print( "cant connect to server. ",error )
 	
 	server_warning.visible = true
-	world.begin_game()
+	Global.begin_game.emit()
+	#world.begin_game()
 
 func _on_join_dev_server_pressed():
 	var error = Network.join_server()
 	if error:
-		print( "cant connect to server. ",error )
-	server_warning.visible = false
-	await get_tree().process_frame
+		push_warning( "cant connect to server. ",error )
+	else:
+		server_warning.visible = false
+		await get_tree().process_frame
+		Global.begin_game.emit()
 
 func _on_join_custom_server_pressed():
 	var add : String = custom_server_address.placeholder_text
@@ -74,28 +85,33 @@ func _on_join_custom_server_pressed():
 	print("Trying to connect to ",add)
 	var error = Network.join_server( add )
 	if error:
-		print( "cant connect to server. ",error )
-	server_warning.visible = false
-	await get_tree().process_frame
+		push_warning( "cant connect to server. ",error )
+	else:
+		server_warning.visible = false
+		await get_tree().process_frame
+		Global.begin_game.emit()
 	
 func _on_disconnect_pressed():
 	multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = null
 	world.stop_game()
+	get_tree().reload_current_scene()
 
 func _set_connected():
 	single_player.disabled = true
-	host_server.disabled = true
-	join_custom_server.disabled = true
-	join_dev_server.disabled = true
+	if not OS.has_feature("web"):
+		host_server.disabled = true
+		join_custom_server.disabled = true
+		join_dev_server.disabled = true
 	disconnect_button.disabled = false
 	Global.curr_GAME_STATE = Global.GAME_STATE.SPAWN
 	
 func _set_disconnected():
 	single_player.disabled = false
-	host_server.disabled = false
-	join_custom_server.disabled = false
-	join_dev_server.disabled = false
+	if not OS.has_feature("web"):
+		host_server.disabled = false
+		join_custom_server.disabled = false
+		join_dev_server.disabled = false
 	disconnect_button.disabled = true
 	Global.curr_GAME_STATE = Global.GAME_STATE.CONNECTION
 	
@@ -120,13 +136,10 @@ func _process(_delta):
 			server_status.text = "Single Player."
 	else:
 		single_player.disabled = false
-		host_server.disabled = false
-		join_custom_server.disabled = false
-		join_dev_server.disabled = false
+		if not OS.has_feature("web"):
+			host_server.disabled = false
+			join_custom_server.disabled = false
+			join_dev_server.disabled = false
+			server_warning.visible = false
 		disconnect_button.disabled = true
-		server_warning.visible = false
 		server_status.text = "Disconnected."
-
-
-	
-	#world.toggle_menu()
