@@ -129,6 +129,7 @@ properties/9/replication_mode = 1
 
 [node name="player" type="Node2D"]
 script = ExtResource("1_ejxrk")
+jump_speed = 100
 current_loadout = Array[int]([0, 1, 2])
 collision_rect = Rect2(-2, -2, 4, 6)
 i_frame = 0.25
@@ -166,7 +167,6 @@ position = Vector2(0, -3)
 
 [node name="jetpack_particules" type="GPUParticles2D" parent="main_sprite"]
 position = Vector2(-3, 2)
-emitting = false
 amount = 64
 process_material = SubResource("ParticleProcessMaterial_71i5l")
 

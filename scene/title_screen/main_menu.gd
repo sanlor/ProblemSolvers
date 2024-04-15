@@ -2,6 +2,8 @@ extends CanvasLayer
 
 @onready var world = $".."
 
+@onready var settings_screen = $"../settings_screen"
+
 @onready var single_player = $connection/single_player
 @onready var host_server = $connection/host_server
 @onready var join_dev_server = $connection/join_dev_server
@@ -11,6 +13,8 @@ extends CanvasLayer
 
 @onready var disconnect_button = $connection/disconnect
 @onready var server_warning = $connection/server_warning
+
+@onready var s_button = $settings/s_button
 
 @onready var server_status = $server_status
 
@@ -33,7 +37,7 @@ func _ready():
 		server_warning.text = "Multiplayer functionality is disabled for the HTML5 build."
 		
 	Global.game_state_changed.connect( _change_visibility )
-	Global.show_connection_screen.connect( func(): visible = not visible ) # toggle visibility
+	#Global.show_connection_screen.connect( func(): visible = not visible ) # toggle visibility
 	
 	#curr_network_state = multiplayer.multiplayer_peer.get_connection_status()
 
@@ -42,6 +46,13 @@ func _change_visibility(state : Global.GAME_STATE):
 		visible = true
 	else:
 		visible = false
+		
+func toggle_menu():
+	visible = not visible
+	if settings_screen.visible: # if settings menu is open, close it.
+		settings_screen.visible = false
+		
+	Global.player_input_disabled = visible
 
 func _on_single_player_pressed():
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
@@ -143,3 +154,6 @@ func _process(_delta):
 			server_warning.visible = false
 		disconnect_button.disabled = true
 		server_status.text = "Disconnected."
+
+func _on_s_button_pressed():
+	settings_screen.visible = true

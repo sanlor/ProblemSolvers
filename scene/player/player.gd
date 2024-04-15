@@ -70,6 +70,7 @@ var curr_i_frame := 0.0
 @export var recovery_time := 5.0 ## When you are HURT and stopped moving, how long should you stay in the HURT state?
 var curr_recovery_time := 0.0
 
+var can_jump := false
 var is_dead := false
 var dead_time := 4.0
 
@@ -196,30 +197,36 @@ func _update_line():
 
 func _user_input():
 	# Cant move while hurt
-	if curr_state != STATE.HURT:
-		dir = Input.get_axis("walk_left", "walk_right")
-		if dir != 0:
-			velocity.x = lerp(velocity.x, dir * speed, acceleration)
-		else:
-			velocity.x = lerp(velocity.x, 0.0, friction)
+	if not Global.player_input_disabled: # Disable input when menus are open
+		if curr_state != STATE.HURT:
+			dir = Input.get_axis("walk_left", "walk_right")
+			if dir != 0:
+				velocity.x = lerp(velocity.x, dir * speed, acceleration)
+			else:
+				velocity.x = lerp(velocity.x, 0.0, friction)
+				
+			if Input.is_action_pressed("shoot") and not current_loadout.is_empty():
+				if current_cooldown <= 0.0:
+					_shoot_weapon()
+					current_cooldown = current_weapon.firerate
 			
-		if Input.is_action_pressed("shoot") and not current_loadout.is_empty():
-			if current_cooldown <= 0.0:
-				_shoot_weapon()
-				current_cooldown = current_weapon.firerate
-		
-		if Input.is_action_pressed("jetpack") and jetpack_cooldown.value > 5:
-			is_jetpack_active = true
-			curr_state = STATE.FLYING
-			velocity.y -= jetpack_impulse
-			
-#		elif Input.is_action_just_released("jetpack"):
-		else:
-			is_jetpack_active = false
+			if Input.is_action_pressed("jetpack") and jetpack_cooldown.value > 5:
+				is_jetpack_active = true
+				curr_state = STATE.FLYING
+				velocity.y -= jetpack_impulse
+			else:
+				is_jetpack_active = false
+				
+			if can_jump and Input.is_action_just_pressed("jump") and is_multiplayer_authority(): ## PLACEHOLDER
+				velocity.y -= jump_speed
+				curr_state = STATE.JUMPING
+				
 
-		if Input.is_action_just_pressed("change_weapon"):
-			change_weapon()
-			
+			if Input.is_action_just_pressed("change_weapon"):
+				change_weapon()
+				
+		_update_line()
+		
 func change_weapon():
 	current_loadout.push_back( current_loadout.pop_front() )
 	load_weapon_data( current_loadout.front() )
@@ -323,7 +330,9 @@ func _collision_check( ):
 	
 	var is_near_wall_left 		: bool = world_node.is_pixel_set( near_wall_left_check.global_position )
 	var is_in_wall_left 		: bool = world_node.is_pixel_set( wall_left_check.global_position )
-
+	
+	can_jump = false
+	
 	## VERTICAL
 	if is_near_land:
 		if curr_i_frame <= 0.0: # after i frames has passed
@@ -338,6 +347,8 @@ func _collision_check( ):
 			velocity = velocity.bounce( Vector2(0,1) ) / vertical_bounce_damp
 				
 		else:
+			can_jump = true
+			
 			if velocity.y > 0.0:
 				velocity.y = 0.0
 				
@@ -449,7 +460,6 @@ func _process( delta ):
 		
 	elif is_multiplayer_authority() and not is_dead: # cant control the player if its dead
 		_user_input()	
-		_update_line()
 		_cooldown( delta )
 		_collision_check( )
 			

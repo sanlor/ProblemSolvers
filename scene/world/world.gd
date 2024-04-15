@@ -151,12 +151,9 @@ func push_server_changes():
 	apply_map_changes.rpc( data, map_image.get_data().size() )
 	apply_spawn_points.rpc( spawn_points )
 
-	
-
 @rpc("authority","call_remote","reliable",1)
 func apply_map_changes( remote_data : PackedByteArray, buffer : int):
 	if remote_data is PackedByteArray:
-		
 		var data : PackedByteArray = remote_data.decompress(buffer, level_image_compression)
 		if verbose_network_logs:
 			print( "RECEIVED: raw image data is ", data.size() / 1e+6,"MB" )
@@ -198,7 +195,6 @@ func request_add_player(id : int):
 func add_curr_player(id : int):
 	if verbose_logs:
 		print("SP_Player requested by ", multiplayer.get_remote_sender_id())
-	#players_in_game.append( id )
 	_add_curr_player.rpc( id )
 
 @rpc("authority","call_local")

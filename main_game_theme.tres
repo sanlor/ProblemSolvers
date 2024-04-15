@@ -1,6 +1,11 @@
-[gd_resource type="Theme" load_steps=2 format=3 uid="uid://chc54b5p47vwe"]
+[gd_resource type="Theme" load_steps=4 format=3 uid="uid://chc54b5p47vwe"]
 
 [ext_resource type="FontFile" uid="uid://0r4l51dek7yc" path="res://art/font/cg-pixel-3x5.ttf" id="1_cqf7m"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qnwc3"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_k4pik"]
+bg_color = Color(0.196078, 0.196078, 0.196078, 1)
 
 [resource]
 Button/font_sizes/font_size = 20
@@ -10,10 +15,15 @@ Label/font_sizes/font_size = 10
 Label/fonts/font = ExtResource("1_cqf7m")
 LineEdit/font_sizes/font_size = 10
 LineEdit/fonts/font = ExtResource("1_cqf7m")
-MarginContainer/constants/margin_bottom = 6
-MarginContainer/constants/margin_left = 6
-MarginContainer/constants/margin_right = 6
-MarginContainer/constants/margin_top = 6
+MarginContainer/constants/margin_bottom = 10
+MarginContainer/constants/margin_left = 10
+MarginContainer/constants/margin_right = 10
+MarginContainer/constants/margin_top = 10
+Panel/styles/panel = SubResource("StyleBoxFlat_qnwc3")
+PanelContainer/styles/panel = SubResource("StyleBoxFlat_k4pik")
 RichTextLabel/constants/line_separation = 2
 RichTextLabel/font_sizes/normal_font_size = 10
 RichTextLabel/fonts/normal_font = ExtResource("1_cqf7m")
+TabContainer/constants/icon_separation = 4
+TabContainer/font_sizes/font_size = 10
+TabContainer/fonts/font = ExtResource("1_cqf7m")

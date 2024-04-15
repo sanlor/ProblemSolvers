@@ -5,6 +5,8 @@ extends CanvasLayer
 @onready var problem_team = $player_spawn/HBoxContainer/problem_team
 @onready var solver_team = $player_spawn/HBoxContainer/solver_team
 
+@onready var spawn_camera = $spawn_camera
+
 @onready var join_button = $player_spawn/join_button
 
 @onready var spawn_timer = $spawn_timer
@@ -22,6 +24,7 @@ func _change_visibility(state : Global.GAME_STATE):
 	if state == Global.GAME_STATE.SPAWN:
 		visible = true
 		can_player_spawn()
+		spawn_camera.enabled = true
 	else:
 		visible = false
 
@@ -55,7 +58,7 @@ func _on_solver_team_pressed():
 func _on_join_pressed():
 	Network.update_player_data.rpc_id(1, Network.player_data )
 	Global.player_entered_world.emit( multiplayer.get_unique_id() )
-	
+	spawn_camera.enabled = false
 	Global.curr_GAME_STATE = Global.GAME_STATE.IN_GAME
 
 func _force_update():
