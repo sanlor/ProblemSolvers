@@ -7,7 +7,9 @@ var cam_speed := 350.0
 func _ready():
 	limit_top = 0
 	limit_left = 0
+	@warning_ignore("narrowing_conversion")
 	limit_bottom = Global.map_size.y
+	@warning_ignore("narrowing_conversion")
 	limit_right = Global.map_size.x
 	
 func cam_control(delta):

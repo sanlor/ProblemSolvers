@@ -138,7 +138,7 @@ func _process(_delta):
 						_set_connected()
 						server_status.text = "Connected!" + "\n" + Network.connected_server_name
 					MultiplayerPeer.CONNECTION_CONNECTING:
-						_set_connected()
+						#_set_connected()
 						server_status.text = "Connecting..."
 					MultiplayerPeer.CONNECTION_DISCONNECTED:
 						_set_disconnected()

@@ -16,9 +16,9 @@ func _ready():
 	Global.update_inputs.connect( update_key_text )
 
 
-func _toggled(button_pressed):
-	set_process_input(button_pressed)
-	if button_pressed:
+func _toggled(_button_pressed):
+	set_process_input(_button_pressed)
+	if _button_pressed:
 		text = "..."
 		disabled = true
 		release_focus()

@@ -19,6 +19,7 @@ config/icon="res://art/player/icon.png"
 
 Global="*res://autoload/global.gd"
 Network="*res://autoload/network.gd"
+Tool="*res://autoload/tool.gd"
 
 [debug]
 

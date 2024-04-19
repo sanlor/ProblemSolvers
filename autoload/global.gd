@@ -15,6 +15,9 @@ var game_seed 			:= hash("poop")
 var has_initial_server_data := false
 var server_only := false
 
+## websocket stuff
+var fragment_amount := 200 # initial map sync is divinded in this amount of packets. 1MB / 25 = 41.943,04 bytes
+
 ## Game settins
 var max_amount_blood_splatter := 15 # being shot
 
@@ -33,7 +36,7 @@ var curr_GAME_STATE = GAME_STATE.CONNECTION :
 	set(state):
 		curr_GAME_STATE = state
 		game_state_changed.emit( curr_GAME_STATE )
-		print("Changed game state to ", GAME_STATE.keys()[ curr_GAME_STATE ])
+		#print("Changed game state to ", GAME_STATE.keys()[ curr_GAME_STATE ])
 
 ## Signals
 signal game_state_changed (state : GAME_STATE)
@@ -47,6 +50,17 @@ signal player_entered_world( player_id : int) ## called by the UI
 signal player_death( player_id )
 signal spawn_player( player_id )
 signal create_projectile (weapon_data : Weapons, initial_position : Vector2, initial_direction : float)
+
+## Notifications
+signal notification_level_generating
+signal notification_level_loading
+signal notification_level_loaded
+
+signal notification_receiving_server_data
+signal notification_received_server_data
+
+## Network
+signal server_data_received
 
 ## Settings
 signal update_inputs
